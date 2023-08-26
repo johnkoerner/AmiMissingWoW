@@ -4,7 +4,7 @@
 ## Notes: Figures out if you are missing something from a TSM Price Group
 ## Author: Negative0
 ## Version: v1.6
-
+## SavedVariables: ItemsByPlayer, ItemCount
 ## Dependencies: TradeSkillMaster
 
 AmIMissing.xml
