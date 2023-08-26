@@ -73,6 +73,14 @@ local function OnEvent(self, event, ...)
             sendInfo()
         end
     end 
+
+    if event == "BAG_NEW_ITEMS_UPDATED" then
+        sendInfo()
+    end 
+
+    if event == "OWNED_AUCTIONS_UPDATED" then
+        sendInfo()
+    end
 end
 
 
@@ -138,19 +146,29 @@ function sendInfo()
     end
     if (count < 1) then
         print ("Nothing to report!")
-        C_ChatInfo.SendAddonMessage(prefix, "DONE", msgLoc, playerName)
+        ItemsByPlayer[playerServer]={}
     else 
         table.sort(missing)
-        print("Missing Items:")
+        ItemsByPlayer[playerServer]={}
         for k, link in ipairs(missing) do
-            print(link)
-            C_ChatInfo.SendAddonMessage(prefix, link, msgLoc, playerName)
+            UpdateItemsByPlayer(playerServer, link)
         end
-        C_ChatInfo.SendAddonMessage(prefix, "DONE", msgLoc, playerName)
     end
     
 end
 
+function GetItemNameFromLink(itemLink) 
+    itemName = GetItemInfo(itemLink)
+    return itemName;
+end 
+
+function ItemLinkSorter(item1, item2) 
+    local item1String = GetItemNameFromLink(item1)
+    local item2String = GetItemNameFromLink(item2)
+    print(item1String)
+
+    return item1String < item2String
+end
 
 function createUI() 
 
@@ -158,7 +176,7 @@ function createUI()
     tex = buffBox:CreateTexture(nil, "BACKGROUND")
     
     buffBox:SetFrameStrata("MEDIUM")
-    buffBox:SetWidth(800)
+    buffBox:SetWidth(1200)
     buffBox:SetHeight(600)
     buffBox.texture = tex
     tex:SetAllPoints(true)
@@ -182,14 +200,14 @@ function createUI()
     )
     buffBox:Show()
     
-    local sf = CreateFrame("ScrollFrame", "KethoEditBoxScrollFrame", buffBox, "UIPanelScrollFrameTemplate")
+    local sf = CreateFrame("ScrollFrame", "KethoEditBoxScrollFrame1", buffBox, "UIPanelScrollFrameTemplate")
     sf:SetPoint("LEFT", 16, 0)
-    sf:SetPoint("RIGHT", -415, 0)
+    sf:SetPoint("RIGHT", -800, 0)
     sf:SetPoint("TOP", -32, -32)
     sf:SetPoint("BOTTOM", 0, 10)
     
     -- EditBox
-    local eb = CreateFrame("EditBox", "KethoEditBoxEditBox", KethoEditBoxScrollFrame)
+    local eb = CreateFrame("EditBox", "KethoEditBoxEditBox1", KethoEditBoxScrollFrame)
     eb:SetSize(sf:GetSize())
     eb:SetMultiLine(true)
     eb:SetAutoFocus(false) -- dont automatically focus
@@ -197,14 +215,14 @@ function createUI()
     eb:SetScript("OnEscapePressed", function() f:Hide() end)
     sf:SetScrollChild(eb)
 
-    local sf2 = CreateFrame("ScrollFrame", "KethoEditBoxScrollFrame", buffBox, "UIPanelScrollFrameTemplate")
+    local sf2 = CreateFrame("ScrollFrame", "KethoEditBoxScrollFrame2", buffBox, "UIPanelScrollFrameTemplate")
     sf2:SetPoint("LEFT",431, 0)
-    sf2:SetPoint("RIGHT", -32, 0)
+    sf2:SetPoint("RIGHT", -400, 0)
     sf2:SetPoint("TOP", -32, -32)
     sf2:SetPoint("BOTTOM", 0, 10)
     
     -- EditBox
-    local eb2 = CreateFrame("EditBox", "KethoEditBoxEditBox", KethoEditBoxScrollFrame)
+    local eb2 = CreateFrame("EditBox", "KethoEditBoxEditBox2", KethoEditBoxScrollFrame)
     eb2:SetSize(sf2:GetSize())
     eb2:SetMultiLine(true)
     eb2:SetAutoFocus(false) -- dont automatically focus
@@ -213,18 +231,50 @@ function createUI()
     sf2:SetScrollChild(eb2)
 
 
+    local sf3 = CreateFrame("ScrollFrame", "KethoEditBoxScrollFrame3", buffBox, "UIPanelScrollFrameTemplate")
+    sf3:SetPoint("LEFT",831, 0)
+    sf3:SetPoint("RIGHT", -32, 0)
+    sf3:SetPoint("TOP", -32, -32)
+    sf3:SetPoint("BOTTOM", 0, 10)
+    
+    -- EditBox
+    local eb3 = CreateFrame("EditBox", "KethoEditBoxEditBox3", KethoEditBoxScrollFrame)
+    eb3:SetSize(sf3:GetSize())
+    eb3:SetMultiLine(true)
+    eb3:SetAutoFocus(false) -- dont automatically focus
+    eb3:SetFontObject("ChatFontNormal")
+    eb3:SetScript("OnEscapePressed", function() f:Hide() end)
+    sf3:SetScrollChild(eb3)
+
+
     output = ""
-    myOutput = playerName
+    myOutput = ""
+    shopOutput = ""
+    shoppingList = {}
+    shoppingSorter = {}
     for name, t in pairs(ItemsByPlayer) do
         for item, discard in pairs(t) do
             output = output .. name .. ":" .. item .. "\n"
+            if shoppingList[item]==nil then
+                shoppingList[item] = 0
+            end 
+            shoppingList[item] = shoppingList[item] +  1
+            table.insert(shoppingSorter,item);
             if (name == playerServer) then
                 myOutput = myOutput .. item .. "\n"
             end
         end
     end
 
+    table.sort(shoppingSorter, ItemLinkSorter)
+
+    for idx, itemLink in ipairs(shoppingSorter) do
+        shopOutput = shopOutput .. itemLink .. ":" .. shoppingList[itemLink] .. "\n"
+    end
+
     eb:SetText(output)
     eb2:SetText(myOutput)
+    eb3:SetText(shopOutput)
 
 end
+
