@@ -8,7 +8,10 @@ local msgLoc = "PARTY"
 
 local playerName = UnitName("player")
 local serverName = GetRealmName()
-local playerServer = playerName .. "-" .. serverName
+local cleanedServer = serverName:gsub("%s+", "")
+local playerServer = playerName .. "-" .. cleanedServer
+
+
 function AmIMissing_OnLoad()
     SLASH_AMIMISSING1= "/ami";
     SlashCmdList["AMIMISSING"] = AmIMissing_SlashCommand;
@@ -49,6 +52,12 @@ local function OnEvent(self, event, ...)
 
     if event == "CHAT_MSG_ADDON" then
         if prefixReceived == prefix then
+
+            if (sender == playerServer) then
+                print("Ignorig self messages.")
+                do return end
+            end
+
             if (message == "DONE") then
                 print("Received items from " .. sender)
                 do return end 
@@ -59,7 +68,46 @@ local function OnEvent(self, event, ...)
                 do return end 
             end 
 
-            UpdateItemsByPlayer(sender, message)
+            if (message == "INIT") then
+
+                
+                senderTable = Split(sender, "-")
+                senderName = senderTable[1]
+                senderServer = senderTable[2]
+                
+                tradeSender = sender
+                -- If a acct 1 and acct 2 are on the same server, you don't include the -servername in the initiate trade request.
+                if (senderServer == cleanedServer) then
+                    tradeSender = senderName
+                end
+
+                if not TradeFrame:IsShown() then 
+                    print("Starting trade with:" .. tradeSender)
+                    InitiateTrade(tradeSender) 
+                end
+
+                do return end
+
+            end
+                
+
+
+
+            print("AMI:" .. message)
+
+            for b=0,4 do 
+                for s=1,C_Container.GetContainerNumSlots(b)do 
+                    local l=C_Container.GetContainerItemLink(b,s)
+                    if (l) then
+                        local name = GetItemNameFromLink(l)
+                        if name and name:find(message) then
+                            print("Attempting  to trade : " .. message)
+                            C_Container.UseContainerItem(b, s)
+                        
+                        end 
+                    end
+                end 
+            end
         end
     end
     
@@ -114,6 +162,22 @@ elseif (args=="c") then
     print("Reset Missing Items List")
 elseif (args=="u") then
     createUI()
+elseif (args=="trade") then
+    if not TradeFrame:IsShown() then 
+         C_ChatInfo.SendAddonMessage(prefix, "INIT", "PARTY")
+    else
+        for item, _ in pairs(ItemsByPlayer[playerServer]) do
+            print(item)
+            name = GetItemNameFromLink(item)
+            if (name ~= nil) then
+
+
+
+                print("Sending:" .. name)
+                C_ChatInfo.SendAddonMessage(prefix, name, "PARTY")
+            end
+        end
+    end
 else 
     sendInfo()
 end
@@ -165,13 +229,17 @@ end
 function ItemLinkSorter(item1, item2) 
     local item1String = GetItemNameFromLink(item1)
     local item2String = GetItemNameFromLink(item2)
-    print(item1String)
-
-    return item1String < item2String
+    if (item1String == nil) then
+        return false
+    elseif (item2String == nil) then
+        return true
+    else
+        return item1String < item2String
+    end 
 end
 
 function createUI() 
-
+    sendInfo()
     buffBox = CreateFrame("Frame", "BuffBoxFrame", UIParent, "BasicFrameTemplateWithInset")
     tex = buffBox:CreateTexture(nil, "BACKGROUND")
     
@@ -257,9 +325,10 @@ function createUI()
             output = output .. name .. ":" .. item .. "\n"
             if shoppingList[item]==nil then
                 shoppingList[item] = 0
+                table.insert(shoppingSorter,item);
             end 
             shoppingList[item] = shoppingList[item] +  1
-            table.insert(shoppingSorter,item);
+            
             if (name == playerServer) then
                 myOutput = myOutput .. item .. "\n"
             end
@@ -278,3 +347,13 @@ function createUI()
 
 end
 
+function Split (inputstr, sep)
+    if sep == nil then
+            sep = "%s"
+    end
+    local t={}
+    for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+            table.insert(t, str)
+    end
+    return t
+end
