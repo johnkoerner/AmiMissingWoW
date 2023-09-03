@@ -1,5 +1,5 @@
 
-CRAFTED_MOG = "10.1.5"
+CRAFTED_MOG = {"10.1.5","Crafted Restock"}
 local prefix = "AmIMissingItem"
 
 local ignoreList = {["Negz-MoonGuard"]=true, ["Negativezero-Winterhoof"]=true}
@@ -103,7 +103,8 @@ local function OnEvent(self, event, ...)
                         if name and name:find(message) then
                             print("Attempting  to trade : " .. message)
                             C_Container.UseContainerItem(b, s)
-                        
+                            -- Only want to trade one item at a time
+                            do return end
                         end 
                     end
                 end 
@@ -178,6 +179,7 @@ elseif (args=="trade") then
             end
         end
     end
+    sendInfo()
 else 
     sendInfo()
 end
@@ -189,7 +191,7 @@ function sendInfo()
     missing = {}
     excess = {}
     for i, name in ipairs(TSM_API.GetGroupPaths({})) do
-        if (name==CRAFTED_MOG) then
+        if (contains(CRAFTED_MOG, name)) then
             for j, itemNum in ipairs(TSM_API.GetGroupItems(name, false, {})) do
                 bag = TSM_API.GetBagQuantity(itemNum)
                 auc = TSM_API.GetAuctionQuantity(itemNum)
@@ -219,6 +221,17 @@ function sendInfo()
         end
     end
     
+end
+
+function contains(table, value) 
+    for index, tableVal in ipairs(table) do
+        if value == tableVal then
+            return true
+        end
+    end
+
+    return false
+
 end
 
 function GetItemNameFromLink(itemLink) 
