@@ -1,5 +1,5 @@
 
-CRAFTED_MOG = {"10.1.5","Crafted Restock"}
+CRAFTED_MOG = {"10.1.5","Crafted Restock", "10.1.5 - Icy"}
 local prefix = "AmIMissingItem"
 
 local ignoreList = {["Negz-MoonGuard"]=true, ["Negativezero-Winterhoof"]=true}
@@ -140,6 +140,8 @@ f:RegisterEvent("PLAYER_ENTERING_WORLD")
 f:RegisterEvent("GROUP_ROSTER_UPDATE")
 f:RegisterEvent("OWNED_AUCTIONS_UPDATED")
 f:RegisterEvent("BAG_NEW_ITEMS_UPDATED")
+f:RegisterEvent("AUCTION_HOUSE_BROWSE_RESULTS_ADDED")
+f:RegisterEvent("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
 f:SetScript("OnEvent", OnEvent)
 
 function AmIMissing_SlashCommand(args)  
@@ -167,6 +169,11 @@ elseif (args=="trade") then
     if not TradeFrame:IsShown() then 
          C_ChatInfo.SendAddonMessage(prefix, "INIT", "PARTY")
     else
+        -- Trade all but 10k gold, so we can consolidate funds
+        moneyToTrade = GetMoney() - 100000000
+        if (moneyToTrade > 0) then
+            MoneyInputFrame_SetCopper(TradePlayerInputMoneyFrame, moneyToTrade);
+        end 
         for item, _ in pairs(ItemsByPlayer[playerServer]) do
             print(item)
             name = GetItemNameFromLink(item)
@@ -180,6 +187,15 @@ elseif (args=="trade") then
         end
     end
     sendInfo()
+elseif (args == "z") then
+    local results = C_AuctionHouse.GetBrowseResults()
+    for k,v in pairs(results) do
+        local id = v["itemKey"]["itemID"]
+        local link = TSM_API.GetItemLink("i:" .. id)
+       print(id .. "," .. link .. ",500000")
+    end
+elseif (args == "un") then
+    ScanRecipes()
 else 
     sendInfo()
 end
@@ -195,7 +211,8 @@ function sendInfo()
             for j, itemNum in ipairs(TSM_API.GetGroupItems(name, false, {})) do
                 bag = TSM_API.GetBagQuantity(itemNum)
                 auc = TSM_API.GetAuctionQuantity(itemNum)
-                total = bag + auc;
+                mail = TSM_API.GetMailQuantity(itemNum)
+                total = bag + auc+mail;
                 if (total < 1) then
                     link = TSM_API.GetItemLink(itemNum)
                     table.insert(missing, link)
@@ -264,7 +281,7 @@ function createUI()
     buffBox.title = buffBox:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     
     buffBox.title:SetPoint("LEFT", buffBox.TitleBg, "LEFT", 5, 0)
-    buffBox.title:SetText("Am I Missing?")
+    buffBox.title:SetText("Am I Missing? - " .. playerServer)
     
     buffBox:SetPoint("TOPLEFT", 0, 0)
     buffBox:SetMovable(true)
@@ -369,4 +386,23 @@ function Split (inputstr, sep)
             table.insert(t, str)
     end
     return t
+end
+
+function ScanRecipes()
+    local recipeList = C_TradeSkillUI.GetFilteredRecipeIDs()
+    local output = ""
+    for _, recipeID in ipairs(recipeList) do
+        local recipeInfo = C_TradeSkillUI.GetRecipeInfo(recipeID)
+        if recipeInfo and not recipeInfo.learned then
+             local itemLink = C_TradeSkillUI.GetRecipeItemLink(recipeID)
+            output = output .. GetItemIDFromLink(itemLink) .. ","
+        end
+    end
+
+    print(output)
+end
+
+function GetItemIDFromLink(itemLink)
+    local _, _, itemID = string.find(itemLink, "item:(%d+)")
+    return tonumber(itemID)
 end
