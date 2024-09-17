@@ -54,7 +54,6 @@ local function OnEvent(self, event, ...)
         if prefixReceived == prefix then
 
             if (sender == playerServer) then
-                print("Ignorig self messages.")
                 do return end
             end
 
@@ -89,6 +88,10 @@ local function OnEvent(self, event, ...)
                 do return end
 
             end
+
+            if (message == "LEAVE") then 
+                C_PartyInfo.LeaveParty()
+            end 
                 
 
 
@@ -114,14 +117,15 @@ local function OnEvent(self, event, ...)
     
     if event == "GROUP_ROSTER_UPDATE" then
         if sender==nil or (ignoreList[sender]==true) then
-            print("Ignored: " .. playerName)
+            --print("Ignored: " .. playerName)
         else
-            print("Sender:" .. sender)
-            print("playerName:" .. playerName)
-            print("here")
+           -- print("Sender:" .. sender)
+           -- print("playerName:" .. playerName)
+           -- print("here")
             sendInfo()
         end
     end 
+
 
     if event == "BAG_NEW_ITEMS_UPDATED" then
         sendInfo()
@@ -130,6 +134,9 @@ local function OnEvent(self, event, ...)
     if event == "OWNED_AUCTIONS_UPDATED" then
         sendInfo()
     end
+    if event == "PARTY_INVITE_REQUEST" then
+        AcceptGroup()
+    end 
 end
 
 
@@ -142,6 +149,7 @@ f:RegisterEvent("OWNED_AUCTIONS_UPDATED")
 f:RegisterEvent("BAG_NEW_ITEMS_UPDATED")
 f:RegisterEvent("AUCTION_HOUSE_BROWSE_RESULTS_ADDED")
 f:RegisterEvent("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
+f:RegisterEvent("PARTY_INVITE_REQUEST")
 f:SetScript("OnEvent", OnEvent)
 
 function AmIMissing_SlashCommand(args)  
@@ -196,6 +204,8 @@ elseif (args == "z") then
     end
 elseif (args == "un") then
     ScanRecipes()
+elseif (args == "leave") then
+    C_ChatInfo.SendAddonMessage(prefix, "LEAVE", "WHISPER", "negzmule-winterhoof")
 else 
     sendInfo()
 end
@@ -269,6 +279,7 @@ function ItemLinkSorter(item1, item2)
 end
 
 function createUI() 
+    print("here")
     sendInfo()
     buffBox = CreateFrame("Frame", "BuffBoxFrame", UIParent, "BasicFrameTemplateWithInset")
     tex = buffBox:CreateTexture(nil, "BACKGROUND")
@@ -388,14 +399,22 @@ function Split (inputstr, sep)
     return t
 end
 
+-- Need to have the tradeskill window open for this to work.
 function ScanRecipes()
+    print("Scanning recipes")
+    -- Get's the list based on the current filters, so set the filter to drop and unlearned and then you can get a list of only what you haven't learned
     local recipeList = C_TradeSkillUI.GetFilteredRecipeIDs()
     local output = ""
-    for _, recipeID in ipairs(recipeList) do
+    print("name, id, maxPrice")
+    for  k, recipeID in ipairs(recipeList) do
         local recipeInfo = C_TradeSkillUI.GetRecipeInfo(recipeID)
         if recipeInfo and not recipeInfo.learned then
-             local itemLink = C_TradeSkillUI.GetRecipeItemLink(recipeID)
-            output = output .. GetItemIDFromLink(itemLink) .. ","
+             --local schematic = C_TradeSkillUI.GetRecipeSchematic(recipeID, false)
+             -- print(itemLink)
+             --local reason = "";
+             --print (schematic.name)
+
+            print(recipeInfo.name .. "," .. recipeID .. ", 50000000")
         end
     end
 
