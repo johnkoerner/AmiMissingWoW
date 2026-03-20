@@ -1,5 +1,5 @@
 
-CRAFTED_MOG = {"10.1.5","Crafted Restock", "10.1.5 - Icy"}
+CRAFTED_MOG = {"10.1.5","Crafted Restock", "10.1.5 - Icy"} 
 local prefix = "AmIMissingItem"
 
 local ignoreList = {["Negz-MoonGuard"]=true, ["Negativezero-Winterhoof"]=true}
@@ -48,9 +48,12 @@ end
 
 local function OnEvent(self, event, ...)
 
-    local prefixReceived, message, distributionType, sender = ...
+    -- TODO: Move the spread operator inside each event if that needs it.  The spread operator is index based, not name based and different events have different values sent in the table.
+    
 
+    
     if event == "CHAT_MSG_ADDON" then
+        local prefixReceived, message, distributionType, sender = ...
         if prefixReceived == prefix then
 
             if (sender == playerServer) then
@@ -116,14 +119,7 @@ local function OnEvent(self, event, ...)
     end
     
     if event == "GROUP_ROSTER_UPDATE" then
-        if sender==nil or (ignoreList[sender]==true) then
-            --print("Ignored: " .. playerName)
-        else
-           -- print("Sender:" .. sender)
-           -- print("playerName:" .. playerName)
-           -- print("here")
-            sendInfo()
-        end
+        sendInfo()
     end 
 
 
@@ -134,8 +130,30 @@ local function OnEvent(self, event, ...)
     if event == "OWNED_AUCTIONS_UPDATED" then
         sendInfo()
     end
+    -- Accept any rando invite for my mule so I don't have to switch windows.
     if event == "PARTY_INVITE_REQUEST" then
-        AcceptGroup()
+        if (playerName == "Negzmule") then
+            print("Accepting group invite")
+            AcceptGroup()
+            -- Hide the join prompt
+            if (StaticPopup1) then
+                StaticPopup1:Hide()
+            end 
+        end
+    end 
+
+    -- Leave any group if I get invite to another group. This is if I forget to have them leave the group when the other player logs off.  Hmm... could I trigger this on player log off?
+    if event == "CHAT_MSG_SYSTEM" then
+        local text = ...
+        print(playerName)
+        if (playerName == "Negzmule") then
+            print("here")
+            print(text)
+            if string.find(text, "you are already in a group") then
+                print("leaving group")
+                C_PartyInfo.LeaveParty()
+            end 
+        end 
     end 
 end
 
@@ -143,6 +161,7 @@ end
 
 local f = CreateFrame("Frame")
 f:RegisterEvent("CHAT_MSG_ADDON")
+f:RegisterEvent("CHAT_MSG_SYSTEM")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
 f:RegisterEvent("GROUP_ROSTER_UPDATE")
 f:RegisterEvent("OWNED_AUCTIONS_UPDATED")
@@ -180,7 +199,9 @@ elseif (args=="trade") then
         -- Trade all but 10k gold, so we can consolidate funds
         moneyToTrade = GetMoney() - 100000000
         if (moneyToTrade > 0) then
-            MoneyInputFrame_SetCopper(TradePlayerInputMoneyFrame, moneyToTrade);
+            -- Blizzard disabled the ApI to set money in the trade window, so we can't do that anymore.
+            print("Give " .. moneyToTrade .. " to the other account")
+    --         MoneyInputFrame_SetCopper(TradePlayerInputMoneyFrame, moneyToTrade);
         end 
         for item, _ in pairs(ItemsByPlayer[playerServer]) do
             print(item)
@@ -205,7 +226,7 @@ elseif (args == "z") then
 elseif (args == "un") then
     ScanRecipes()
 elseif (args == "leave") then
-    C_ChatInfo.SendAddonMessage(prefix, "LEAVE", "WHISPER", "negzmule-winterhoof")
+    C_ChatInfo.SendAddonMessage(prefix, "LEAVE", "PARTY")
 else 
     sendInfo()
 end
