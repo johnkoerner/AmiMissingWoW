@@ -61,7 +61,7 @@ local function OnEvent(self, event, ...)
             end
 
             if (message == "DONE") then
-                print("Received items from " .. sender)
+                print("Received items from " .. sender) 
                 do return end 
             end
 
@@ -227,23 +227,53 @@ elseif (args == "un") then
     ScanRecipes()
 elseif (args == "leave") then
     C_ChatInfo.SendAddonMessage(prefix, "LEAVE", "PARTY")
-else 
+elseif (args == "debug") then
+    sendInfo(true)
+elseif (args == "help" or args == "?") then
+    print("|cff00ff00AmIMissing Commands (/ami):|r")
+    print("  |cffffd700(no args)|r - Scan and send missing items info")
+    print("  |cffffd700p|r        - Print items by player")
+    print("  |cffffd700l|r        - List all missing items with counts")
+    print("  |cffffd700c|r        - Clear/reset the missing items list")
+    print("  |cffffd700u|r        - Open the UI")
+    print("  |cffffd700trade|r    - Initiate trade or send items to trade window")
+    print("  |cffffd700leave|r    - Send leave message to party")
+    print("  |cffffd700un|r       - Scan for unlearned recipes")
+    print("  |cffffd700debug|r    - Run scan with verbose output per item")
+    print("  |cffffd700help|r     - Show this help text")
+else
     sendInfo()
 end
     
 end
 
-function sendInfo()
+function sendInfo(debug)
     count = 0
     missing = {}
     excess = {}
-    for i, name in ipairs(TSM_API.GetGroupPaths({})) do
-        if (contains(CRAFTED_MOG, name)) then
-            for j, itemNum in ipairs(TSM_API.GetGroupItems(name, false, {})) do
+    local allGroups = TSM_API.GetGroupPaths({})
+    if debug then
+        print("|cff00ff00[AMI Debug]|r TSM groups found: " .. #allGroups)
+        print("|cff00ff00[AMI Debug]|r Looking for groups: " .. table.concat(CRAFTED_MOG, ", "))
+    end
+    for i, name in ipairs(allGroups) do
+        local matched = contains(CRAFTED_MOG, name)
+        if debug then
+            print("|cff00ff00[AMI Debug]|r Group: '" .. name .. "' matched=" .. tostring(matched))
+        end
+        if matched then
+            local groupItems = TSM_API.GetGroupItems(name, false, {})
+            if debug then
+                print("|cff00ff00[AMI Debug]|r  Items in group: " .. #groupItems)
+            end
+            for j, itemNum in ipairs(groupItems) do
                 bag = TSM_API.GetBagQuantity(itemNum)
                 auc = TSM_API.GetAuctionQuantity(itemNum)
                 mail = TSM_API.GetMailQuantity(itemNum)
                 total = bag + auc+mail;
+                if debug then
+                    print("|cff00ff00[AMI Debug]|r  " .. tostring(itemNum) .. " bag=" .. bag .. " auc=" .. auc .. " mail=" .. mail .. " total=" .. total)
+                end
                 if (total < 1) then
                     link = TSM_API.GetItemLink(itemNum)
                     table.insert(missing, link)
@@ -253,7 +283,6 @@ function sendInfo()
                 if (total > 1) then
                     link = TSM_API.GetItemLink(itemNum)
                     table.insert(excess, link)
-                
                 end
             end
         end
@@ -261,7 +290,7 @@ function sendInfo()
     if (count < 1) then
         print ("Nothing to report!")
         ItemsByPlayer[playerServer]={}
-    else 
+    else
         table.sort(missing)
         ItemsByPlayer[playerServer]={}
         for k, link in ipairs(missing) do
@@ -299,114 +328,106 @@ function ItemLinkSorter(item1, item2)
     end 
 end
 
-function createUI() 
-    print("here")
-    sendInfo()
+local function createUIFrame()
     buffBox = CreateFrame("Frame", "BuffBoxFrame", UIParent, "BasicFrameTemplateWithInset")
-    tex = buffBox:CreateTexture(nil, "BACKGROUND")
-    
     buffBox:SetFrameStrata("MEDIUM")
     buffBox:SetWidth(1200)
     buffBox:SetHeight(600)
+
+    local tex = buffBox:CreateTexture(nil, "BACKGROUND")
     buffBox.texture = tex
     tex:SetAllPoints(true)
+
     buffBox.title = buffBox:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    
     buffBox.title:SetPoint("LEFT", buffBox.TitleBg, "LEFT", 5, 0)
     buffBox.title:SetText("Am I Missing? - " .. playerServer)
-    
+
     buffBox:SetPoint("TOPLEFT", 0, 0)
     buffBox:SetMovable(true)
     buffBox:EnableMouse(true)
-
     buffBox:RegisterForDrag("LeftButton")
-    buffBox:SetScript("OnDragStart", function(self)
-                                        self:StartMoving();
+    buffBox:SetScript("OnDragStart", function(self) self:StartMoving() end)
+    buffBox:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
 
-                                    end)
-    buffBox:SetScript("OnDragStop", function(self)
-                                        buffBox:StopMovingOrSizing();
-                                    end
-    )
-    buffBox:Show()
-    
+    -- Register with UISpecialFrames so ESC closes the window
+    tinsert(UISpecialFrames, "BuffBoxFrame")
+
     local sf = CreateFrame("ScrollFrame", "KethoEditBoxScrollFrame1", buffBox, "UIPanelScrollFrameTemplate")
     sf:SetPoint("LEFT", 16, 0)
     sf:SetPoint("RIGHT", -800, 0)
     sf:SetPoint("TOP", -32, -32)
     sf:SetPoint("BOTTOM", 0, 10)
-    
-    -- EditBox
-    local eb = CreateFrame("EditBox", "KethoEditBoxEditBox1", KethoEditBoxScrollFrame)
-    eb:SetSize(sf:GetSize())
-    eb:SetMultiLine(true)
-    eb:SetAutoFocus(false) -- dont automatically focus
-    eb:SetFontObject("ChatFontNormal")
-    eb:SetScript("OnEscapePressed", function() f:Hide() end)
-    sf:SetScrollChild(eb)
+    buffBox.eb = CreateFrame("EditBox", "KethoEditBoxEditBox1", sf)
+    buffBox.eb:SetSize(sf:GetSize())
+    buffBox.eb:SetMultiLine(true)
+    buffBox.eb:SetAutoFocus(false)
+    buffBox.eb:SetFontObject("ChatFontNormal")
+    sf:SetScrollChild(buffBox.eb)
 
     local sf2 = CreateFrame("ScrollFrame", "KethoEditBoxScrollFrame2", buffBox, "UIPanelScrollFrameTemplate")
-    sf2:SetPoint("LEFT",431, 0)
+    sf2:SetPoint("LEFT", 431, 0)
     sf2:SetPoint("RIGHT", -400, 0)
     sf2:SetPoint("TOP", -32, -32)
     sf2:SetPoint("BOTTOM", 0, 10)
-    
-    -- EditBox
-    local eb2 = CreateFrame("EditBox", "KethoEditBoxEditBox2", KethoEditBoxScrollFrame)
-    eb2:SetSize(sf2:GetSize())
-    eb2:SetMultiLine(true)
-    eb2:SetAutoFocus(false) -- dont automatically focus
-    eb2:SetFontObject("ChatFontNormal")
-    eb2:SetScript("OnEscapePressed", function() f:Hide() end)
-    sf2:SetScrollChild(eb2)
-
+    buffBox.eb2 = CreateFrame("EditBox", "KethoEditBoxEditBox2", sf2)
+    buffBox.eb2:SetSize(sf2:GetSize())
+    buffBox.eb2:SetMultiLine(true)
+    buffBox.eb2:SetAutoFocus(false)
+    buffBox.eb2:SetFontObject("ChatFontNormal")
+    sf2:SetScrollChild(buffBox.eb2)
 
     local sf3 = CreateFrame("ScrollFrame", "KethoEditBoxScrollFrame3", buffBox, "UIPanelScrollFrameTemplate")
-    sf3:SetPoint("LEFT",831, 0)
+    sf3:SetPoint("LEFT", 831, 0)
     sf3:SetPoint("RIGHT", -32, 0)
     sf3:SetPoint("TOP", -32, -32)
     sf3:SetPoint("BOTTOM", 0, 10)
-    
-    -- EditBox
-    local eb3 = CreateFrame("EditBox", "KethoEditBoxEditBox3", KethoEditBoxScrollFrame)
-    eb3:SetSize(sf3:GetSize())
-    eb3:SetMultiLine(true)
-    eb3:SetAutoFocus(false) -- dont automatically focus
-    eb3:SetFontObject("ChatFontNormal")
-    eb3:SetScript("OnEscapePressed", function() f:Hide() end)
-    sf3:SetScrollChild(eb3)
+    buffBox.eb3 = CreateFrame("EditBox", "KethoEditBoxEditBox3", sf3)
+    buffBox.eb3:SetSize(sf3:GetSize())
+    buffBox.eb3:SetMultiLine(true)
+    buffBox.eb3:SetAutoFocus(false)
+    buffBox.eb3:SetFontObject("ChatFontNormal")
+    sf3:SetScrollChild(buffBox.eb3)
+end
 
+function createUI()
+    sendInfo()
 
-    output = ""
-    myOutput = ""
-    shopOutput = ""
-    shoppingList = {}
-    shoppingSorter = {}
-    for name, t in pairs(ItemsByPlayer) do
+    if not buffBox then
+        createUIFrame()
+    end
+
+    local output = ""
+    local myOutput = ""
+    local shopOutput = ""
+    local shoppingList = {}
+    local shoppingSorter = {}
+    local shoppingLinks = {}
+    for name, t in pairs(ItemsByPlayer or {}) do
         for item, discard in pairs(t) do
             output = output .. name .. ":" .. item .. "\n"
-            if shoppingList[item]==nil then
-                shoppingList[item] = 0
-                table.insert(shoppingSorter,item);
-            end 
-            shoppingList[item] = shoppingList[item] +  1
-            
+            local itemID = GetItemIDFromLink(item) or item
+            if shoppingList[itemID] == nil then
+                shoppingList[itemID] = 0
+                shoppingLinks[itemID] = item
+                table.insert(shoppingSorter, itemID)
+            end
+            shoppingList[itemID] = shoppingList[itemID] + 1
             if (name == playerServer) then
                 myOutput = myOutput .. item .. "\n"
             end
         end
     end
 
-    table.sort(shoppingSorter, ItemLinkSorter)
+    table.sort(shoppingSorter, function(a, b) return ItemLinkSorter(shoppingLinks[a], shoppingLinks[b]) end)
 
-    for idx, itemLink in ipairs(shoppingSorter) do
-        shopOutput = shopOutput .. itemLink .. ":" .. shoppingList[itemLink] .. "\n"
+    for idx, itemID in ipairs(shoppingSorter) do
+        shopOutput = shopOutput .. shoppingLinks[itemID] .. ":" .. shoppingList[itemID] .. "\n"
     end
 
-    eb:SetText(output)
-    eb2:SetText(myOutput)
-    eb3:SetText(shopOutput)
-
+    buffBox.eb:SetText(output)
+    buffBox.eb2:SetText(myOutput)
+    buffBox.eb3:SetText(shopOutput)
+    buffBox:Show()
 end
 
 function Split (inputstr, sep)
